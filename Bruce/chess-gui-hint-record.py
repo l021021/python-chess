@@ -2,7 +2,6 @@ import tkinter as tk
 import chess
 import chess.engine
 import sys
-import winsound
 
 STOCKFISH_PATH = "D:\\stockfish\\stockfish-windows-x86-64-avx2.exe"
 
@@ -19,6 +18,7 @@ class ChessGUI:
         self.hint_move = None
         self.create_widgets()
 
+        # 设置窗口关闭事件处理
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def create_widgets(self):
@@ -50,27 +50,21 @@ class ChessGUI:
 
     def draw_pieces(self):
         self.canvas.delete("pieces")
-        self.canvas.delete("hint")
-        self.canvas.delete("check")  # 删除之前的将军提示
         piece_images = {
             "P": "♙", "R": "♖", "N": "♘", "B": "♗", "Q": "♕", "K": "♔",
             "p": "♟", "r": "♜", "n": "♞", "b": "♝", "q": "♛", "k": "♚"
         }
         for square in chess.SQUARES:
             piece = self.board.piece_at(square)
-            x = (square % 8) * 50
-            y = (7 - square // 8) * 50
-            color = "black"
-            if self.last_move and square in (self.last_move.from_square, self.last_move.to_square):
-                color = "red"
-            elif self.hint_move and square in (self.hint_move.from_square, self.hint_move.to_square):
-                color = "green"
-                self.canvas.create_oval(x + 5, y + 5, x + 45, y + 45, outline="green", width=2, tags="hint")
             if piece:
-                self.canvas.create_text(x + 25, y + 25, text=piece_images[piece.symbol()], tags="pieces", font=("Arial", 24), fill=color)
-
-        if self.board.is_check():
-            self.canvas.create_text(200, 20, text="Check!", font=("Arial", 16), fill="red", tags="check")
+                x = (square % 8) * 50 + 25
+                y = (7 - square // 8) * 50 + 25
+                color = "black"
+                if self.last_move and square in (self.last_move.from_square, self.last_move.to_square):
+                    color = "red"
+                elif self.hint_move and square in (self.hint_move.from_square, self.hint_move.to_square):
+                    color = "green"
+                self.canvas.create_text(x, y, text=piece_images[piece.symbol()], tags="pieces", font=("Arial", 24), fill=color)
 
     def on_square_click(self, event):
         col = event.x // 50
@@ -91,7 +85,6 @@ class ChessGUI:
                 self.draw_pieces()
                 print(f"Moved to {chess.square_name(square)}")
                 self.selected_square = None
-                self.check_for_check()
                 self.after_user_move()
             else:
                 print("Illegal move")
@@ -110,18 +103,9 @@ class ChessGUI:
             self.hint_move = None
             self.draw_pieces()
             print(f"Stockfish moved to {result.move}")
-            self.check_for_check()
             if self.board.is_checkmate():
                 print("Checkmate! You lose.")
                 self.canvas.create_text(200, 200, text="Checkmate! You lose.", font=("Arial", 32), fill="red", tags="game_over")
-
-    def check_for_check(self):
-        if self.board.is_check():
-            print("Check!")
-            self.canvas.create_text(200, 20, text="Check!", font=("Arial", 16), fill="red", tags="check")
-            winsound.Beep(1000, 500)  # 发出蜂鸣声
-        else:
-            self.canvas.delete("check")
 
     def record_move(self, move, player):
         try:
@@ -137,7 +121,7 @@ class ChessGUI:
         result = self.engine.play(self.board, chess.engine.Limit(time=1.0))
         self.hint_move = result.move
         self.draw_pieces()
-        print(f"Hint: {chess.square_name(self.hint_move.from_square)} to {chess.square_name(self.hint_move.to_square)}")
+        print(f"Hint: {self.hint_move}")
 
     def run(self):
         self.root.mainloop()
@@ -149,6 +133,14 @@ class ChessGUI:
         self.root.quit()
         self.root.destroy()
         sys.exit()
+
+    def check_window(self):
+        if not self.root.winfo_exists():
+            print("Window closed, exiting program.")
+            self.engine.quit()
+            sys.exit()
+        else:
+            self.root.after(100, self.check_window)
 
 
 def main():
